@@ -53,6 +53,11 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
 
     override fun onPageFinished(view: WebView, url: String) {
         super.onPageFinished(view, url)
+        
+        // Force the viewport meta tag
+        val viewportJs = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'; document.getElementsByTagName('head')[0].appendChild(meta);"
+        view.evaluateJavascript(viewportJs, null)
+
         // Inject in order — each layer stacks on the previous
         injectAdBlockCSS(view)       // Layer 1: Hide upgrade prompts and ad containers
         injectTouchCSS(view)         // Layer 2: Polish for finger interaction
@@ -98,7 +103,8 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
      * on the playback bar.
      */
     private fun injectTouchCSS(view: WebView) {
-        val css = "*{-webkit-overflow-scrolling:touch;}" +
+        val css = "html,body,#main,.Root__top-container{max-width:100vw!important;min-width:0!important;overflow-x:hidden!important;}" +
+                  "*{-webkit-overflow-scrolling:touch;}" +
                   "[data-testid='control-button-playpause']," +
                   "[data-testid='control-button-skip-forward']," +
                   "[data-testid='control-button-skip-back']" +
