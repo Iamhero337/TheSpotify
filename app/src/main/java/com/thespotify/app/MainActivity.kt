@@ -135,6 +135,11 @@ class MainActivity : AppCompatActivity() {
         mediaService?.updateNotification(title, artist)
     }
 
+    /** Called by WebAppInterface (from injected JS) when play/pause state changes */
+    fun onPlaybackStateChanged(isPlaying: Boolean) {
+        mediaService?.updatePlaybackState(isPlaying)
+    }
+
     /**
      * Called by MediaControlReceiver when the user taps a notification button.
      * Evaluates JS that clicks the corresponding control in the Spotify web player.

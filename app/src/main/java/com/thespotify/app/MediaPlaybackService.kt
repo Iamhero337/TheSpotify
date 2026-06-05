@@ -5,7 +5,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -22,8 +24,14 @@ import androidx.media.app.NotificationCompat as MediaNotificationCompat
  *   - OS treats our process as actively doing work → won't kill it
  *   - Music plays through lock screen, app switching, screen-off
  *
- * The MediaSession powers the lock screen playback widget and headphone buttons.
- * The WakeLock prevents the CPU from sleeping mid-track.
+ * The MediaSession powers the lock screen / status-bar media controls (including the
+ * OnePlus "dynamic island" style indicator) and routes their button presses back into
+ * the web player. The WakeLock prevents the CPU from sleeping mid-track.
+ *
+ * IMPORTANT: We do NOT show the notification or activate the MediaSession at launch.
+ * Doing so makes the phone think media is playing the instant the app opens (even with
+ * nothing playing). Instead we wait until the web player reports actual playback via
+ * updatePlaybackState(), then go foreground and mark the session active.
  */
 class MediaPlaybackService : Service() {
 
@@ -37,27 +45,23 @@ class MediaPlaybackService : Service() {
     }
 
     private val binder        = LocalBinder()
+    private val mainHandler   = Handler(Looper.getMainLooper())
     private lateinit var mediaSession: MediaSessionCompat
     private var wakeLock: PowerManager.WakeLock? = null
     private var currentTitle  = "Spotify"
     private var currentArtist = ""
+
+    // Tracks real playback so the system media controls reflect reality
+    private var isPlaying    = false
+    // True once we've gone foreground (i.e. real playback has started at least once)
+    private var isForeground = false
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         setupMediaSession()
         acquireWakeLock()
-
-        // Must call startForeground() promptly (within 5 s on Android 12+)
-        val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        // NOTE: deliberately NOT calling startForeground() here — see class docs.
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -67,6 +71,7 @@ class MediaPlaybackService : Service() {
 
     override fun onDestroy() {
         wakeLock?.let { if (it.isHeld) it.release() }
+        mediaSession.isActive = false
         mediaSession.release()
         super.onDestroy()
     }
@@ -74,6 +79,9 @@ class MediaPlaybackService : Service() {
     /**
      * Update notification text and MediaSession metadata.
      * Called via: MainActivity.onMetadataUpdate() ← WebAppInterface ← injected JS.
+     *
+     * Stores the metadata so it's ready in the session, but only refreshes the visible
+     * notification if we've already gone foreground (i.e. something is actually playing).
      */
     fun updateNotification(title: String, artist: String) {
         currentTitle  = title.ifBlank { "Spotify" }
@@ -86,8 +94,48 @@ class MediaPlaybackService : Service() {
                 .build()
         )
 
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIFICATION_ID, buildNotification())
+        if (isForeground) {
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, buildNotification())
+        }
+    }
+
+    /**
+     * Called when the web player's play/pause state changes (via injected JS).
+     *
+     * First time playback actually starts: go foreground (show the notification) and
+     * activate the MediaSession so the system media controls appear. On later changes,
+     * just update the playback state and notification icon.
+     */
+    fun updatePlaybackState(playing: Boolean) {
+        isPlaying = playing
+        mediaSession.setPlaybackState(buildPlaybackState())
+
+        if (playing) {
+            mediaSession.isActive = true
+            if (!isForeground) {
+                goForeground()
+                return
+            }
+        }
+
+        if (isForeground) {
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, buildNotification())
+        }
+    }
+
+    private fun goForeground() {
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+        isForeground = true
     }
 
     private fun buildNotification(): Notification {
@@ -100,13 +148,17 @@ class MediaPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Show a pause icon while playing, a play icon while paused
+        val playPauseIcon  = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play_pause
+        val playPauseLabel = if (isPlaying) "Pause" else "Play"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(currentTitle)
             .setContentText(currentArtist)
             .setContentIntent(openApp)
             .addAction(R.drawable.ic_skip_previous, "Previous",  pendingBroadcast("previous",  1))
-            .addAction(R.drawable.ic_play_pause,    "Play/Pause", pendingBroadcast("playPause", 2))
+            .addAction(playPauseIcon,               playPauseLabel, pendingBroadcast("playPause", 2))
             .addAction(R.drawable.ic_skip_next,     "Next",      pendingBroadcast("next",      3))
             .setStyle(
                 MediaNotificationCompat.MediaStyle()
@@ -115,8 +167,8 @@ class MediaPlaybackService : Service() {
             )
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show controls on lock screen
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)  // Cannot be dismissed by swipe
-            .setSilent(true)   // No sound/vibration for notification updates
+            .setOngoing(isPlaying)  // Swipe-dismissable while paused
+            .setSilent(true)        // No sound/vibration for notification updates
             .build()
     }
 
@@ -131,19 +183,42 @@ class MediaPlaybackService : Service() {
         )
     }
 
+    private fun buildPlaybackState(): PlaybackStateCompat {
+        val state = if (isPlaying)
+            PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        val speed = if (isPlaying) 1f else 0f
+        return PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY or
+                PlaybackStateCompat.ACTION_PAUSE or
+                PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+            )
+            .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, speed)
+            .build()
+    }
+
     private fun setupMediaSession() {
         mediaSession = MediaSessionCompat(this, "TheSpotify").apply {
-            setPlaybackState(
-                PlaybackStateCompat.Builder()
-                    .setActions(
-                        PlaybackStateCompat.ACTION_PLAY_PAUSE or
-                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-                    )
-                    .setState(PlaybackStateCompat.STATE_PLAYING, 0L, 1f)
-                    .build()
-            )
-            isActive = true
+            // CRITICAL: this is what makes the phone's OWN media controls (dynamic island,
+            // lock screen, Bluetooth, headset buttons) actually do something. Without it,
+            // pressing next/previous/play on the system controls is silently ignored.
+            setCallback(object : MediaSessionCompat.Callback() {
+                override fun onPlay()           = sendToPlayer("playPause")
+                override fun onPause()          = sendToPlayer("playPause")
+                override fun onSkipToNext()     = sendToPlayer("next")
+                override fun onSkipToPrevious() = sendToPlayer("previous")
+            })
+            setPlaybackState(buildPlaybackState())
+            // isActive stays false until real playback begins (see updatePlaybackState)
+        }
+    }
+
+    /** Route a system media-control press into the web player on the main thread. */
+    private fun sendToPlayer(command: String) {
+        mainHandler.post {
+            MainActivity.instance?.get()?.executeMediaCommand(command)
         }
     }
 

@@ -25,6 +25,14 @@ class WebAppInterface(private val activity: MainActivity) {
         }
     }
 
+    /** Called from injected JS when the web player's play/pause state changes. */
+    @JavascriptInterface
+    fun updatePlaybackState(isPlaying: Boolean) {
+        mainHandler.post {
+            activity.onPlaybackStateChanged(isPlaying)
+        }
+    }
+
     /** Forward JS console messages to Android logcat during development. */
     @JavascriptInterface
     fun log(message: String) {

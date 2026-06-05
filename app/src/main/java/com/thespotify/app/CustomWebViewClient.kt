@@ -65,6 +65,7 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
         injectTouchCSS(view)         // Layer 2: Polish for finger interaction
         injectAudioAdMonitor(view)   // Layer 3: Detect and skip stream-injected audio ads
         injectMetadataBridge(view)   // Layer 4: Feed track info to the notification
+        injectPlaybackStateMonitor(view) // Layer 5: Report play/pause state to the service
     }
 
     // ─── JavaScript injection ─────────────────────────────────────────────────
@@ -192,6 +193,44 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                 });
                 obs.observe(document.body||document.documentElement,
                     {subtree:true,childList:true,characterData:true});
+            })();
+        """.trimIndent()
+
+        view.evaluateJavascript(js, null)
+    }
+
+    /**
+     * LAYER 5 — JavaScript: Playback state monitor.
+     *
+     * The Android side needs to know whether music is ACTUALLY playing so it can:
+     *  1. Only show the system media controls once real playback starts
+     *     (otherwise the phone shows a "playing" indicator the moment the app opens)
+     *  2. Reflect play vs pause in the notification + lock screen / dynamic island
+     *
+     * Spotify's play/pause button reports state via its aria-label: "Pause" while
+     * playing, "Play" while paused. We poll once a second and report only on change.
+     */
+    private fun injectPlaybackStateMonitor(view: WebView) {
+        val js = """
+            (function(){
+                if(window._swState)return;
+                window._swState=true;
+                var last=null;
+                setInterval(function(){
+                    try{
+                        var btn=document.querySelector('[data-testid="control-button-playpause"]');
+                        if(!btn)return;
+                        var label=(btn.getAttribute('aria-label')||'').toLowerCase();
+                        // "pause" label shown => track is currently playing
+                        var playing=label.indexOf('paus')!==-1;
+                        if(playing!==last){
+                            last=playing;
+                            if(window.TheSpotify&&window.TheSpotify.updatePlaybackState){
+                                window.TheSpotify.updatePlaybackState(playing);
+                            }
+                        }
+                    }catch(e){}
+                },1000);
             })();
         """.trimIndent()
 
