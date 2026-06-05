@@ -55,14 +55,7 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
         super.onPageFinished(view, url)
 
         if (url.contains("open.spotify.com")) {
-            val viewportJs =
-                "(function(){" +
-                "var c='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
-                "var m=document.querySelector('meta[name=\"viewport\"]');" +
-                "if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');" +
-                "(document.head||document.documentElement).appendChild(m);}" +
-                "m.setAttribute('content',c);" +
-                "})();"
+            val viewportJs = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'; document.getElementsByTagName('head')[0].appendChild(meta);"
             view.evaluateJavascript(viewportJs, null)
         }
 
@@ -124,9 +117,6 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                  "var s=document.createElement('style');" +
                  "s.id='sw-touch';" +
                  "s.textContent='$css';" +
-                 "if(window.location.hostname === 'open.spotify.com') {" +
-                 "  s.textContent += 'html,body,#main,.Root__top-container{max-width:100vw!important;min-width:0!important;overflow-x:hidden!important;}';" +
-                 "}" +
                  "(document.head||document.documentElement).appendChild(s);" +
                  "})();"
 
