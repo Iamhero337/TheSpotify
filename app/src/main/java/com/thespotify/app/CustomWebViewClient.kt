@@ -119,32 +119,38 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
     }
 
     /**
-     * LAYER 3 — JavaScript: Detect and skip audio ads.
+     * LAYER 3 — JavaScript: Detect and silence audio ads.
      *
      * Spotify sometimes stitches ads directly into the audio stream server-side.
-     * These can't be blocked by domain filtering (same CDN as music).
-     * This monitor polls every second; when it detects an audio ad:
-     *  1. Mutes the audio element
-     *  2. Sets playbackRate to 16× (fast-forward through silence)
-     *  3. Clicks the skip-forward button
-     *  4. Unmutes 800 ms later (after skip takes effect)
+     * These can't be blocked by domain filtering (same CDN as music) and skipping is
+     * usually disabled during an ad. So the reliable action is to MUTE the actual media
+     * element for the entire duration of the ad and unmute the moment it ends.
+     *
+     * Each tick:
+     *  - If an ad is showing: mute every media element, and click skip if it's enabled.
+     *  - When the ad disappears: unmute so music returns.
+     * Muting the underlying <video>/<audio> element silences output even for DRM media,
+     * which the old playbackRate trick could not affect.
      */
     private fun injectAudioAdMonitor(view: WebView) {
         val js = """
             (function(){
                 if(window._swMonitor)return;
                 window._swMonitor=true;
+                var wasAd=false;
                 setInterval(function(){
                     try{
                         var isAd=!!document.querySelector('[data-testid="audio-ad"]');
-                        if(!isAd)return;
-                        var audio=document.querySelector('audio');
-                        if(audio){audio.muted=true;audio.playbackRate=16.0;}
-                        var skip=document.querySelector('[data-testid="control-button-skip-forward"]');
-                        if(skip&&!skip.disabled)skip.click();
-                        setTimeout(function(){
-                            if(audio){audio.muted=false;audio.playbackRate=1.0;}
-                        },800);
+                        var els=document.querySelectorAll('video,audio');
+                        if(isAd){
+                            wasAd=true;
+                            for(var i=0;i<els.length;i++){els[i].muted=true;}
+                            var skip=document.querySelector('[data-testid="control-button-skip-forward"]');
+                            if(skip&&!skip.disabled)skip.click();
+                        }else if(wasAd){
+                            wasAd=false;
+                            for(var k=0;k<els.length;k++){els[k].muted=false;}
+                        }
                     }catch(e){}
                 },1000);
             })();
@@ -197,8 +203,10 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
      *     (otherwise the phone shows a "playing" indicator the moment the app opens)
      *  2. Reflect play vs pause in the notification + lock screen / dynamic island
      *
-     * Spotify's play/pause button reports state via its aria-label: "Pause" while
-     * playing, "Play" while paused. We poll once a second and report only on change.
+     * Ground truth is the media element's own `paused` flag — this is language
+     * independent and reflects what's actually coming out of the speaker. We fall back
+     * to the play/pause button's aria-label only if no media element is present yet.
+     * We poll once a second and report only on change.
      */
     private fun injectPlaybackStateMonitor(view: WebView) {
         val js = """
@@ -206,13 +214,24 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                 if(window._swState)return;
                 window._swState=true;
                 var last=null;
+                function isPlaying(){
+                    var els=document.querySelectorAll('video,audio');
+                    for(var i=0;i<els.length;i++){
+                        var el=els[i];
+                        if(!el.paused&&!el.ended)return true;
+                    }
+                    if(els.length>0)return false;
+                    // No media element yet: fall back to the button's accessibility label.
+                    var btn=document.querySelector('[data-testid="control-button-playpause"]');
+                    if(btn){
+                        var label=(btn.getAttribute('aria-label')||'').toLowerCase();
+                        if(label.indexOf('paus')!==-1)return true; // showing "Pause" => playing
+                    }
+                    return false;
+                }
                 setInterval(function(){
                     try{
-                        var btn=document.querySelector('[data-testid="control-button-playpause"]');
-                        if(!btn)return;
-                        var label=(btn.getAttribute('aria-label')||'').toLowerCase();
-                        // "pause" label shown => track is currently playing
-                        var playing=label.indexOf('paus')!==-1;
+                        var playing=isPlaying();
                         if(playing!==last){
                             last=playing;
                             if(window.TheSpotify&&window.TheSpotify.updatePlaybackState){

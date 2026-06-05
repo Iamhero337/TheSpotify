@@ -60,8 +60,9 @@ class MediaPlaybackService : Service() {
         super.onCreate()
         createNotificationChannel()
         setupMediaSession()
-        acquireWakeLock()
+        createWakeLock()
         // NOTE: deliberately NOT calling startForeground() here — see class docs.
+        // The WakeLock is acquired on play / released on pause (see updatePlaybackState).
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -111,6 +112,9 @@ class MediaPlaybackService : Service() {
         isPlaying = playing
         mediaSession.setPlaybackState(buildPlaybackState())
 
+        // Hold the CPU awake only while actually playing; release when paused (battery).
+        setWakeLock(playing)
+
         if (playing) {
             mediaSession.isActive = true
             if (!isForeground) {
@@ -127,15 +131,26 @@ class MediaPlaybackService : Service() {
 
     private fun goForeground() {
         val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            isForeground = true
+        } catch (e: Exception) {
+            // Android 14+ can throw ForegroundServiceStartNotAllowedException if the first
+            // playback is ever reported while the app is in the background. Don't crash —
+            // fall back to a plain notification so controls still appear.
+            try {
+                val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                nm.notify(NOTIFICATION_ID, notification)
+            } catch (_: Exception) {
+            }
         }
-        isForeground = true
     }
 
     private fun buildNotification(): Notification {
@@ -222,12 +237,22 @@ class MediaPlaybackService : Service() {
         }
     }
 
-    private fun acquireWakeLock() {
+    private fun createWakeLock() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "TheSpotify::PlaybackWakeLock"
-        ).apply { acquire(4 * 60 * 60 * 1000L) } // 4-hour window; refreshed on track change
+        ).apply { setReferenceCounted(false) }
+    }
+
+    /** Keep the CPU awake while playing; release it when paused/stopped to save battery. */
+    private fun setWakeLock(active: Boolean) {
+        val wl = wakeLock ?: return
+        if (active) {
+            if (!wl.isHeld) wl.acquire(4 * 60 * 60 * 1000L) // safety timeout, refreshed each play
+        } else {
+            if (wl.isHeld) wl.release()
+        }
     }
 
     private fun createNotificationChannel() {
