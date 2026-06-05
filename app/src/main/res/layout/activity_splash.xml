@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/splash_background"
+    android:gravity="center" android:orientation="vertical"
+    android:paddingStart="32dp" android:paddingEnd="32dp">
+
+    <ImageView android:id="@+id/splashLogo"
+        android:layout_width="128dp" android:layout_height="128dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/splash_logo" />
+
+    <LinearLayout android:id="@+id/splashTitle"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="30dp" android:gravity="center" android:orientation="vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:letterSpacing="0.38" android:text="@string/splash_tagline"
+            android:textColor="@color/spotify_green" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:letterSpacing="0.02"
+            android:text="@string/splash_brand" android:textColor="@color/white"
+            android:textSize="46sp" android:textStyle="bold" />
+        <View android:layout_width="54dp" android:layout_height="3dp"
+            android:layout_marginTop="18dp" android:background="@color/spotify_green" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/splashCredit"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="20dp" android:letterSpacing="0.16"
+        android:text="@string/splash_credit" android:textColor="#B3B3B3" android:textSize="13sp" />
+</LinearLayout>

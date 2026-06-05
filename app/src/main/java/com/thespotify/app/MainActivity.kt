@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.content.ComponentName
 import android.content.Intent
@@ -115,8 +115,8 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient   = CustomWebViewClient(this)
         webView.webChromeClient = CustomWebChromeClient(this)
 
-        // Registers "SpotiWrapper" as window.SpotiWrapper in JavaScript
-        webView.addJavascriptInterface(WebAppInterface(this), "SpotiWrapper")
+        // Registers "TheSpotify" as window.TheSpotify in JavaScript
+        webView.addJavascriptInterface(WebAppInterface(this), "TheSpotify")
 
         if (BuildConfig.DEBUG) {
             WebView.setWebContentsDebuggingEnabled(true)

@@ -1,5 +1,5 @@
 # JavascriptInterface methods must not be renamed — JavaScript calls them by exact name
--keepclassmembers class com.spotiwrapper.app.WebAppInterface {
+-keepclassmembers class com.thespotify.app.WebAppInterface {
     @android.webkit.JavascriptInterface <methods>;
 }
 

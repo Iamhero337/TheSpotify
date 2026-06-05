@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.content.Context
 import android.webkit.PermissionRequest

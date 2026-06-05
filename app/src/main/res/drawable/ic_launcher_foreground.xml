@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- Spotify green circle -->
-    <path android:fillColor="#1DB954"
-          android:pathData="M54,20 a34,34 0,0,1 0,68 a34,34 0,0,1 0,-68Z"/>
-    <!-- White play triangle -->
-    <path android:fillColor="#FFFFFF"
-          android:pathData="M46,38L46,70L72,54Z"/>
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.16"
+        android:pathData="M54,25 a29,29 0 1,0 0,58 a29,29 0 1,0 0,-58Z" />
+    <path android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF"
+        android:strokeWidth="5" android:strokeLineJoin="round" android:strokeLineCap="round"
+        android:pathData="M46,41 L46,67 L72,54 Z" />
 </vector>

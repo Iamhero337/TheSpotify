@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.os.Handler
 import android.os.Looper
@@ -8,7 +8,7 @@ import android.webkit.JavascriptInterface
  * JavaScript → Kotlin bridge.
  *
  * Methods annotated @JavascriptInterface are callable from JS as:
- *   window.SpotiWrapper.updateMetadata("Song Title", "Artist Name")
+ *   window.TheSpotify.updateMetadata("Song Title", "Artist Name")
  *
  * THREADING: These methods run on the WebView rendering thread, not the main thread.
  * We post to the main thread before touching Android services or the notification.
@@ -29,7 +29,7 @@ class WebAppInterface(private val activity: MainActivity) {
     @JavascriptInterface
     fun log(message: String) {
         if (BuildConfig.DEBUG) {
-            android.util.Log.d("SpotiWrapper/JS", message)
+            android.util.Log.d("TheSpotify/JS", message)
         }
     }
 }

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.spotiwrapper.app'
+    namespace 'com.thespotify.app'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.spotiwrapper.app"
+        applicationId "com.thespotify.app"
         minSdk 26        // Android 8.0 — covers 97%+ of active devices
         targetSdk 34     // Required for foregroundServiceType enforcement on API 34
         versionCode 1

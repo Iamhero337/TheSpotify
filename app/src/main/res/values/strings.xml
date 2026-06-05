@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SpotiWrapper</string>
+    <string name="app_name">TheSpotify</string>
+    <string name="splash_tagline">THE NO BULLSHIT</string>
+    <string name="splash_brand">SPOTIFY</string>
+    <string name="splash_credit">Made by iamhero337</string>
 </resources>

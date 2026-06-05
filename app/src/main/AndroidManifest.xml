@@ -1,16 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Network access for Spotify web player -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Prevents CPU from sleeping mid-track -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- Required for any foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- Required on Android 14+ when foregroundServiceType="mediaPlayback" -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
@@ -20,27 +13,30 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SpotiWrapper">
+        android:theme="@style/Theme.TheSpotify">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:launchMode="singleTop"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.TheSpotify.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Foreground service keeps music playing when screen is locked -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".MediaPlaybackService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
 
-        <!-- Receives broadcasts from notification Previous/Play-Pause/Next buttons -->
         <receiver
             android:name=".MediaControlReceiver"
             android:exported="false" />

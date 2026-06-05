@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -23,7 +23,7 @@ import android.os.Looper
 class MediaControlReceiver : BroadcastReceiver() {
 
     companion object {
-        const val ACTION        = "com.spotiwrapper.MEDIA_COMMAND"
+        const val ACTION        = "com.thespotify.MEDIA_COMMAND"
         const val EXTRA_COMMAND = "command"
     }
 

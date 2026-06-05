@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.app.*
 import android.content.Intent
@@ -28,7 +28,7 @@ import androidx.media.app.NotificationCompat as MediaNotificationCompat
 class MediaPlaybackService : Service() {
 
     companion object {
-        const val CHANNEL_ID      = "SpotiWrapperPlayback"
+        const val CHANNEL_ID      = "TheSpotifyPlayback"
         const val NOTIFICATION_ID = 1001
     }
 
@@ -132,7 +132,7 @@ class MediaPlaybackService : Service() {
     }
 
     private fun setupMediaSession() {
-        mediaSession = MediaSessionCompat(this, "SpotiWrapper").apply {
+        mediaSession = MediaSessionCompat(this, "TheSpotify").apply {
             setPlaybackState(
                 PlaybackStateCompat.Builder()
                     .setActions(
@@ -151,7 +151,7 @@ class MediaPlaybackService : Service() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "SpotiWrapper::PlaybackWakeLock"
+            "TheSpotify::PlaybackWakeLock"
         ).apply { acquire(4 * 60 * 60 * 1000L) } // 4-hour window; refreshed on track change
     }
 

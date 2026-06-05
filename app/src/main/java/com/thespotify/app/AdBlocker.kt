@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.webkit.WebResourceResponse
 import java.io.ByteArrayInputStream

@@ -1,4 +1,4 @@
-package com.spotiwrapper.app
+package com.thespotify.app
 
 import android.graphics.Bitmap
 import android.webkit.WebResourceRequest
@@ -53,10 +53,16 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
 
     override fun onPageFinished(view: WebView, url: String) {
         super.onPageFinished(view, url)
-        
-        // Force the viewport meta tag ONLY on the main player, not the login screen
+
         if (url.contains("open.spotify.com")) {
-            val viewportJs = "var meta = document.createElement('meta'); meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'; document.getElementsByTagName('head')[0].appendChild(meta);"
+            val viewportJs =
+                "(function(){" +
+                "var c='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
+                "var m=document.querySelector('meta[name=\"viewport\"]');" +
+                "if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');" +
+                "(document.head||document.documentElement).appendChild(m);}" +
+                "m.setAttribute('content',c);" +
+                "})();"
             view.evaluateJavascript(viewportJs, null)
         }
 
@@ -167,7 +173,7 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
      *
      * Android has no native way to know what is playing inside a WebView.
      * This script uses MutationObserver to watch Spotify's now-playing bar.
-     * When the track title changes it calls window.SpotiWrapper.updateMetadata(title, artist)
+     * When the track title changes it calls window.TheSpotify.updateMetadata(title, artist)
      * — our @JavascriptInterface in WebAppInterface.kt — which then updates the
      * persistent notification and MediaSession (lock screen widget).
      */
@@ -186,7 +192,7 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                         var artist=a?(a.innerText||a.textContent||'').trim():'';
                         if(title&&title!==lastTitle){
                             lastTitle=title;
-                            if(window.SpotiWrapper)window.SpotiWrapper.updateMetadata(title,artist);
+                            if(window.TheSpotify)window.TheSpotify.updateMetadata(title,artist);
                         }
                     }catch(e){}
                 });
