@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
             "AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/124.0.0.0 Safari/537.36"
 
-        const val SPOTIFY_URL = "https://open.spotify.com"
+        const val SPOTIFY_URL = "https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F"
 
         /**
          * Weak reference so MediaControlReceiver can find us without leaking memory.
