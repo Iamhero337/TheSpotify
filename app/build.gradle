@@ -11,18 +11,29 @@ android {
         applicationId "com.thespotify.app"
         minSdk 26        // Android 8.0 — covers 97%+ of active devices
         targetSdk 34     // Required for foregroundServiceType enforcement on API 34
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 3
+        versionName "1.0.2"
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("thespotify.keystore")
+            storePassword "spotify123"
+            keyAlias "thespotify"
+            keyPassword "spotify123"
+        }
     }
 
     buildTypes {
         debug {
             debuggable true
+            signingConfig signingConfigs.release
         }
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
                           'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 
