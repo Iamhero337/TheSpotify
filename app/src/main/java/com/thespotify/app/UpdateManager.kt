@@ -48,8 +48,12 @@ object UpdateManager {
                     prefs.edit().putLong(KEY_LAST_CHECK, currentTime).apply()
 
                     if (isNewer(latestVersion, currentVersion)) {
-                        (context as? android.app.Activity)?.runOnUiThread {
-                            showUpdateDialog(context, latestVersion, releaseUrl)
+                        (context as? android.app.Activity)?.let { activity ->
+                            activity.runOnUiThread {
+                                if (!activity.isFinishing && !activity.isDestroyed) {
+                                    showUpdateDialog(activity, latestVersion, releaseUrl)
+                                }
+                            }
                         }
                     }
                 }
