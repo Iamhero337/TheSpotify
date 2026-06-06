@@ -11,8 +11,8 @@ android {
         applicationId "com.thespotify.app"
         minSdk 26        // Android 8.0 — covers 97%+ of active devices
         targetSdk 34     // Required for foregroundServiceType enforcement on API 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
     }
 
     buildTypes {

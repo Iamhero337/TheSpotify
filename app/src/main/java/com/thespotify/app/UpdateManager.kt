@@ -63,11 +63,15 @@ object UpdateManager {
         return try {
             val latestParts = latest.split(".").map { it.toInt() }
             val currentParts = current.split(".").map { it.toInt() }
-            for (i in 0 until minOf(latestParts.size, currentParts.size)) {
-                if (latestParts[i] > currentParts[i]) return true
-                if (latestParts[i] < currentParts[i]) return false
+            val maxLength = maxOf(latestParts.size, currentParts.size)
+            
+            for (i in 0 until maxLength) {
+                val l = latestParts.getOrElse(i) { 0 }
+                val c = currentParts.getOrElse(i) { 0 }
+                if (l > c) return true
+                if (l < c) return false
             }
-            latestParts.size > currentParts.size
+            false // They are equal
         } catch (e: Exception) {
             latest != current
         }
