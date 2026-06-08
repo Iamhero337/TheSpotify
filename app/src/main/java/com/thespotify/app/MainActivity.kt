@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         startAndBindMediaService()
         setupSleepTimer()
         UpdateManager.checkForUpdates(this)
+        ChangelogManager.checkAndShowChangelog(this)
 
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState) // Restore scroll/history on rotation
