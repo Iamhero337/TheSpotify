@@ -160,13 +160,12 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
     }
 
     /**
-     * LAYER 4 — JavaScript: Track metadata bridge.
+     * LAYER 4 — JavaScript: Track metadata + album art bridge.
      *
-     * Android has no native way to know what is playing inside a WebView.
-     * This script uses MutationObserver to watch Spotify's now-playing bar.
-     * When the track title changes it calls window.TheSpotify.updateMetadata(title, artist)
-     * — our @JavascriptInterface in WebAppInterface.kt — which then updates the
-     * persistent notification and MediaSession (lock screen widget).
+     * MutationObserver watches Spotify's now-playing bar for title/artist changes and
+     * reports them via the @JavascriptInterface. Album art URL is also scraped and
+     * reported separately via updateAlbumArt() so the lock screen shows cover art.
+     * A 5-second fallback interval catches art changes that don't touch the title DOM.
      */
     private fun injectMetadataBridge(view: WebView) {
         val js = """
@@ -174,6 +173,20 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                 if(window._swMeta)return;
                 window._swMeta=true;
                 var lastTitle='';
+                var lastArt='';
+                function sendArtIfChanged(){
+                    try{
+                        var img=document.querySelector('[data-testid="cover-art-image"]')
+                            ||document.querySelector('[data-testid="CoverSlotCollapsed--image"]')
+                            ||document.querySelector('[data-testid="now-playing-widget"] img');
+                        if(!img)return;
+                        var art=img.src||'';
+                        if(art&&art!==lastArt){
+                            lastArt=art;
+                            if(window.TheSpotify)window.TheSpotify.updateAlbumArt(art);
+                        }
+                    }catch(e){}
+                }
                 var obs=new MutationObserver(function(){
                     try{
                         var t=document.querySelector('[data-testid="context-item-info-title"]');
@@ -185,10 +198,12 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                             lastTitle=title;
                             if(window.TheSpotify)window.TheSpotify.updateMetadata(title,artist);
                         }
+                        sendArtIfChanged();
                     }catch(e){}
                 });
                 obs.observe(document.body||document.documentElement,
                     {subtree:true,childList:true,characterData:true});
+                setInterval(sendArtIfChanged,5000);
             })();
         """.trimIndent()
 

@@ -33,6 +33,14 @@ class WebAppInterface(private val activity: MainActivity) {
         }
     }
 
+    /** Called from injected JS when the album art URL changes. */
+    @JavascriptInterface
+    fun updateAlbumArt(artUrl: String) {
+        mainHandler.post {
+            activity.onAlbumArtUpdate(artUrl)
+        }
+    }
+
     /** Forward JS console messages to Android logcat during development. */
     @JavascriptInterface
     fun log(message: String) {

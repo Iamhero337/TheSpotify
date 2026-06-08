@@ -1,6 +1,8 @@
 package com.thespotify.app
 
 import android.app.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Binder
@@ -14,6 +16,9 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.concurrent.thread
 
 /**
  * Foreground Service — the foundation of background playback.
@@ -50,6 +55,8 @@ class MediaPlaybackService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var currentTitle  = "Spotify"
     private var currentArtist = ""
+    private var currentAlbumArt: Bitmap? = null
+    private var currentArtUrl = ""
 
     // Tracks real playback so the system media controls reflect reality
     private var isPlaying    = false
@@ -88,17 +95,51 @@ class MediaPlaybackService : Service() {
         currentTitle  = title.ifBlank { "Spotify" }
         currentArtist = artist.ifBlank { "" }
 
-        mediaSession.setMetadata(
-            MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE,  currentTitle)
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
-                .build()
-        )
+        pushSessionMetadata()
 
         if (isForeground) {
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             nm.notify(NOTIFICATION_ID, buildNotification())
         }
+    }
+
+    /**
+     * Fetch album art from the given URL on a background thread and apply it to the
+     * MediaSession metadata and notification large icon.
+     * Called via MainActivity.onAlbumArtUpdate() ← WebAppInterface ← injected JS.
+     */
+    fun updateAlbumArt(artUrl: String) {
+        if (artUrl.isBlank() || artUrl == currentArtUrl) return
+        currentArtUrl = artUrl
+        thread {
+            try {
+                val conn = URL(artUrl).openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout    = 10000
+                val bmp = BitmapFactory.decodeStream(conn.inputStream)
+                conn.disconnect()
+                if (bmp != null) {
+                    currentAlbumArt = bmp
+                    pushSessionMetadata()
+                    mainHandler.post {
+                        if (isForeground) {
+                            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                            nm.notify(NOTIFICATION_ID, buildNotification())
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun pushSessionMetadata() {
+        mediaSession.setMetadata(
+            MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE,  currentTitle)
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
+                .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, currentAlbumArt)
+                .build()
+        )
     }
 
     /**
@@ -169,6 +210,7 @@ class MediaPlaybackService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(currentAlbumArt)
             .setContentTitle(currentTitle)
             .setContentText(currentArtist)
             .setContentIntent(openApp)

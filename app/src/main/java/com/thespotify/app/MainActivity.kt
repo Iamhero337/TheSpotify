@@ -1,13 +1,18 @@
 package com.thespotify.app
 
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebView
+import android.widget.ImageButton
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import java.lang.ref.WeakReference
 
@@ -17,6 +22,10 @@ class MainActivity : AppCompatActivity() {
     lateinit var webView: WebView
     private var mediaService: MediaPlaybackService? = null
     private var serviceBound = false
+
+    // Sleep timer
+    private val sleepHandler = Handler(Looper.getMainLooper())
+    private var sleepRunnable: Runnable? = null
 
     companion object {
         /**
@@ -67,6 +76,7 @@ class MainActivity : AppCompatActivity() {
 
         setupWebView()
         startAndBindMediaService()
+        setupSleepTimer()
         UpdateManager.checkForUpdates(this)
 
         if (savedInstanceState != null) {
@@ -136,9 +146,60 @@ class MainActivity : AppCompatActivity() {
         mediaService?.updateNotification(title, artist)
     }
 
+    /** Called by WebAppInterface (from injected JS) when the album art URL changes */
+    fun onAlbumArtUpdate(artUrl: String) {
+        mediaService?.updateAlbumArt(artUrl)
+    }
+
     /** Called by WebAppInterface (from injected JS) when play/pause state changes */
     fun onPlaybackStateChanged(isPlaying: Boolean) {
         mediaService?.updatePlaybackState(isPlaying)
+    }
+
+    private fun setupSleepTimer() {
+        findViewById<ImageButton>(R.id.sleepTimerButton).setOnClickListener {
+            showSleepTimerDialog()
+        }
+    }
+
+    private fun showSleepTimerDialog() {
+        val active = sleepRunnable != null
+        val options = if (active)
+            arrayOf("Cancel timer", "15 minutes", "30 minutes", "45 minutes", "60 minutes")
+        else
+            arrayOf("15 minutes", "30 minutes", "45 minutes", "60 minutes")
+
+        AlertDialog.Builder(this)
+            .setTitle("Sleep Timer")
+            .setItems(options) { _, which ->
+                if (active) {
+                    when (which) {
+                        0 -> setSleepTimer(0)
+                        1 -> setSleepTimer(15)
+                        2 -> setSleepTimer(30)
+                        3 -> setSleepTimer(45)
+                        4 -> setSleepTimer(60)
+                    }
+                } else {
+                    setSleepTimer(when (which) { 0 -> 15; 1 -> 30; 2 -> 45; else -> 60 })
+                }
+            }
+            .show()
+    }
+
+    private fun setSleepTimer(minutes: Int) {
+        sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
+        sleepRunnable = null
+        if (minutes == 0) {
+            Toast.makeText(this, "Sleep timer cancelled", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(this, "Sleep timer set: $minutes min", Toast.LENGTH_SHORT).show()
+        sleepRunnable = Runnable {
+            executeMediaCommand("playPause")
+            Toast.makeText(this, "Sleep timer: playback paused", Toast.LENGTH_LONG).show()
+            sleepRunnable = null
+        }.also { sleepHandler.postDelayed(it, minutes * 60_000L) }
     }
 
     /**
@@ -178,6 +239,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         instance = null
+        sleepRunnable?.let { sleepHandler.removeCallbacks(it) }
         if (serviceBound) {
             unbindService(serviceConnection)
             serviceBound = false
