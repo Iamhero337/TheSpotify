@@ -235,8 +235,10 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                         var el=els[i];
                         if(!el.paused&&!el.ended)return true;
                     }
-                    if(els.length>0)return false;
-                    // No media element yet: fall back to the button's accessibility label.
+                    // CRITICAL FIX: Do NOT return false here just because els.length > 0.
+                    // Podcasts and DRM content may leave paused <video> tags in the DOM
+                    // while actual playback happens elsewhere. Always fall back to the UI button!
+                    
                     var btn=document.querySelector('[data-testid="control-button-playpause"]');
                     if(btn){
                         var label=(btn.getAttribute('aria-label')||'').toLowerCase();
