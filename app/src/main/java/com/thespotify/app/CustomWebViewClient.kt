@@ -131,6 +131,12 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
      *  - When the ad disappears: unmute so music returns.
      * Muting the underlying <video>/<audio> element silences output even for DRM media,
      * which the old playbackRate trick could not affect.
+     *
+     * Ad detection uses TWO signals so it survives Spotify renaming a single test-id:
+     *  1. [data-testid="audio-ad"] — the legacy ad-slot marker.
+     *  2. The now-playing title equals "Advertisement" — Spotify sets the same title
+     *     element the metadata bridge reads (so we know it's current) to this during
+     *     audio ads. Safe because no real track is titled exactly "advertisement".
      */
     private fun injectAudioAdMonitor(view: WebView) {
         val js = """
@@ -138,9 +144,18 @@ class CustomWebViewClient(private val activity: MainActivity) : WebViewClient() 
                 if(window._swMonitor)return;
                 window._swMonitor=true;
                 var wasAd=false;
+                function adShowing(){
+                    if(document.querySelector('[data-testid="audio-ad"]'))return true;
+                    var t=document.querySelector('[data-testid="context-item-info-title"]');
+                    if(t){
+                        var s=(t.innerText||t.textContent||'').trim().toLowerCase();
+                        if(s==='advertisement')return true;
+                    }
+                    return false;
+                }
                 setInterval(function(){
                     try{
-                        var isAd=!!document.querySelector('[data-testid="audio-ad"]');
+                        var isAd=adShowing();
                         var els=document.querySelectorAll('video,audio');
                         if(isAd){
                             wasAd=true;
